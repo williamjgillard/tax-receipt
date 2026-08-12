@@ -1,0 +1,245 @@
+
+<script>
+  // ---------- Load data ----------
+  const ORGS = JSON.parse(document.getElementById("spending-data").textContent);
+  const TOTAL_SPEND = ORGS.reduce((s, o) => s + o.total, 0);
+
+  // 2026 federal brackets (CRA, published fall 2025 — indexed +2.0%)
+  const BRACKETS = [
+    [0, 58523, 0.14], [58523, 117045, 0.205], [117045, 181440, 0.26],
+    [181440, 258482, 0.29], [258482, Infinity, 0.33],
+  ];
+  const BPA = 16452;
+  function federalTax(income) {
+    let tax = 0;
+    for (const [lo, hi, rate] of BRACKETS) if (income > lo) tax += (Math.min(income, hi) - lo) * rate;
+    return Math.max(0, tax - BPA * BRACKETS[0][2]);
+  }
+
+  const fmtCents = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt0 = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
+  function fmtScale(n) {
+    const sign = n < 0 ? "-" : "";
+    n = Math.abs(n);
+    if (n >= 1e9) return sign + "$" + (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return sign + "$" + (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return sign + "$" + (n / 1e3).toFixed(0) + "K";
+    return sign + "$" + n.toFixed(0);
+  }
+  function esc(s) { return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function highlight(name, q) {
+    if (!q) return esc(name);
+    const i = name.toLowerCase().indexOf(q);
+    if (i === -1) return esc(name);
+    return esc(name.slice(0, i)) + "<mark>" + esc(name.slice(i, i + q.length)) + "</mark>" + esc(name.slice(i + q.length));
+  }
+
+  // ---------- Barcode ----------
+  const barcode = document.getElementById("barcode");
+  [3,1,2,4,1,3,2,1,4,2,1,3,1,2,4,3,1,2,1,4,2,3,1,2].forEach((w) => {
+    const bar = document.createElement("span");
+    bar.style.width = w + "px";
+    bar.style.height = (10 + w * 4) + "px";
+    barcode.appendChild(bar);
+  });
+
+  // ---------- Teaser (top 6, inside receipt) ----------
+  const teaserEl = document.getElementById("teaser");
+  const TOP_N = ORGS.slice(0, 6);
+  const teaserAmountEls = [];
+  TOP_N.forEach((o) => {
+    const pct = (o.total / TOTAL_SPEND) * 100;
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span class="t-name">${esc(o.name)}</span>
+      <span class="t-leader"></span>
+      <span class="t-amount" data-role="amt">$0</span>
+    `;
+    teaserEl.appendChild(li);
+    teaserAmountEls.push({ el: li.querySelector('[data-role="amt"]'), share: o.total / TOTAL_SPEND });
+  });
+
+  // ---------- Ledger stats ----------
+  document.getElementById("statTotal").textContent = fmtScale(TOTAL_SPEND);
+  document.getElementById("statOrgs").textContent = ORGS.length;
+  document.getElementById("statContracts").textContent = ORGS.reduce((s, o) => s + (o.contracts ? o.contracts.big.length : 0), 0).toLocaleString("en-CA");
+  document.getElementById("statGrants").textContent = ORGS.reduce((s, o) => s + (o.grants ? o.grants.big.length : 0), 0).toLocaleString("en-CA");
+
+  // ---------- Ledger rows ----------
+  const listEl = document.getElementById("ledgerList");
+  const searchInput = document.getElementById("search");
+  const searchMeta = document.getElementById("searchMeta");
+  const emptyState = document.getElementById("emptyState");
+
+  // Known constituent programs the Public Accounts don't break out on their own —
+  // sourced from the 2024–25 Main Estimates (planned, not actuals; the org total above IS actual).
+  const KNOWN_COMPONENTS = {
+    "Department of Finance": {
+      label: "Known components of “Transfer payments” (2024–25 Main Estimates, planned — not broken out individually in the actuals above)",
+      items: [
+        { name: "Canada Health Transfer", amount: 52.1e9 },
+        { name: "Equalization", amount: 25.3e9 },
+        { name: "Canada Social Transfer", amount: 16.9e9 },
+      ],
+      note: "These three alone (~$94.3B planned) roughly account for the $92.6B actually spent under “Transfer payments” — the remainder includes Territorial Formula Financing and smaller transfers, plus normal planned-vs-actual variance.",
+    },
+    "Department of Employment and Social Development": {
+      label: "Known components of “Transfer payments” (2024–25 Main Estimates, planned — not broken out individually in the actuals above)",
+      items: [
+        { name: "Elderly benefits — OAS, GIS & Allowance", amount: 81.1e9 },
+        { name: "Employment Insurance benefits", amount: 27.0e9 },
+      ],
+      note: "The Canada Child Benefit (~$28B) is deliberately not listed here: it's legally delivered as a reduction of personal income tax revenue, not recorded as an expenditure at all — so it never appears anywhere in this $474.4B total.",
+    },
+  };
+
+  function buildDetail(org) {
+    let html = "";
+    const objs = org.standard_objects.filter((s) => s.amount > 0);
+    const negs = org.standard_objects.filter((s) => s.amount < 0);
+    const grossTotal = objs.reduce((s, x) => s + x.amount, 0) || 1;
+    const negTotal = negs.reduce((s, x) => s + x.amount, 0);
+    html += `<div class="detail-block"><div class="detail-heading2">Actual spending mix, FY2024&ndash;25</div>`;
+    objs.slice(0, 8).forEach((s) => {
+      const p = (s.amount / grossTotal) * 100;
+      html += `
+        <div class="sub-row"><span class="sub-name">${esc(s.name)}</span><span class="sub-leader"></span><span class="sub-amt">${p.toFixed(1)}%</span></div>
+        <div class="sub-bar-track"><div class="sub-bar-fill" style="width:${p}%"></div></div>`;
+    });
+    if (negTotal < -1000) {
+      html += `<div class="sub-row"><span class="sub-name">Less: internal &amp; external revenue credited back</span><span class="sub-leader"></span><span class="sub-amt">${fmtScale(negTotal)}</span></div>`;
+      html += `<div class="detail-note" style="margin-top:2px;">Gross spend ${fmtScale(grossTotal)} minus revenue this department collected itself (fees, cost-recovery, etc.) reconciles to the ${fmtScale(org.total)} net total shown above.</div>`;
+    }
+    html += `</div>`;
+
+    const kc = KNOWN_COMPONENTS[org.name];
+    if (kc) {
+      html += `<div class="detail-block"><div class="detail-heading2">${kc.label}</div>`;
+      kc.items.forEach((item) => {
+        html += `<div class="sub-row"><span class="sub-name">${esc(item.name)}</span><span class="sub-leader"></span><span class="sub-amt">${fmtScale(item.amount)}</span></div>`;
+      });
+      html += `<div class="detail-note" style="margin-top:6px;">${kc.note}</div></div>`;
+    }
+
+    if (org.contracts && org.contracts.top_vendors.length) {
+      const c = org.contracts;
+      html += `<div class="detail-block" data-role="contracts">
+        <div class="detail-heading2">Real contracts &mdash; largest vendors</div>
+        <div class="detail-note">${fmtScale(c.total)} in contracts reported this fiscal year (full agreement value, not annual spend) across ${c.count.toLocaleString("en-CA")} contracts. ${c.big.length.toLocaleString("en-CA")} were &ge;$500K.</div>`;
+      c.top_vendors.slice(0, 10).forEach((v) => {
+        html += `<div class="sub-row"><span class="sub-name" data-role="vname">${esc(v.name)}</span><span class="sub-leader"></span><span class="sub-amt">${fmtScale(v.amount)}</span></div>`;
+      });
+      html += `</div>`;
+    }
+    if (org.grants && org.grants.top_recipients.length) {
+      const g = org.grants;
+      html += `<div class="detail-block" data-role="grants">
+        <div class="detail-heading2">Real grants &amp; contributions &mdash; largest recipients</div>
+        <div class="detail-note">${fmtScale(g.total)} in grants/contributions starting this fiscal year across ${g.count.toLocaleString("en-CA")} agreements. ${g.big.length.toLocaleString("en-CA")} were &ge;$250K.</div>`;
+      g.top_recipients.slice(0, 10).forEach((v) => {
+        html += `<div class="sub-row"><span class="sub-name" data-role="rname">${esc(v.name)}</span><span class="sub-leader"></span><span class="sub-amt">${fmtScale(v.amount)}</span></div>`;
+      });
+      html += `</div>`;
+    }
+    if (!org.contracts && !org.grants) {
+      html += `<div class="detail-block"><div class="detail-note">No individually-disclosed contracts or grants matched to this organization for FY2024&ndash;25 &mdash; its spending here is salaries, statutory payments, or below the disclosure thresholds.</div></div>`;
+    }
+    return html;
+  }
+
+  const rows = ORGS.map((org, i) => {
+    const li = document.createElement("li");
+    li.className = "lrow";
+    const pct = (org.total / TOTAL_SPEND) * 100;
+    li.innerHTML = `
+      <div class="lrow-head" tabindex="0" role="button" aria-expanded="false">
+        <span class="lrow-rank">${i + 1}</span>
+        <span class="lrow-mark" data-role="mark">+</span>
+        <span class="lrow-name" data-role="name">${esc(org.name)}</span>
+        <span class="lrow-pct">${pct.toFixed(1)}%</span>
+        <span class="lrow-total">${fmtScale(org.total)}</span>
+        <span class="lrow-share" data-role="share">$0</span>
+      </div>
+      <div class="lrow-detail" data-role="detail"></div>
+    `;
+    listEl.appendChild(li);
+    const head = li.querySelector(".lrow-head");
+    const mark = li.querySelector('[data-role="mark"]');
+    const detailEl = li.querySelector('[data-role="detail"]');
+    const nameEl = li.querySelector('[data-role="name"]');
+    let built = false;
+    const toggle = (forceOpen) => {
+      const expand = forceOpen !== undefined ? forceOpen : !li.classList.contains("expanded");
+      if (!built && expand) { detailEl.innerHTML = buildDetail(org); built = true; }
+      li.classList.toggle("expanded", expand);
+      head.setAttribute("aria-expanded", String(expand));
+      mark.textContent = expand ? "−" : "+";
+    };
+    head.addEventListener("click", () => toggle());
+    head.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    return { org, el: li, shareEl: li.querySelector('[data-role="share"]'), nameEl, detailEl, toggle, built: () => built, markBuilt: () => (built = true) };
+  });
+
+  // ---------- Search ----------
+  function matchOrg(org, q) {
+    if (org.name.toLowerCase().includes(q)) return "name";
+    if (org.contracts && org.contracts.top_vendors.some((v) => v.name.toLowerCase().includes(q))) return "vendor";
+    if (org.grants && org.grants.top_recipients.some((v) => v.name.toLowerCase().includes(q))) return "recipient";
+    return null;
+  }
+
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let visible = 0;
+    rows.forEach((r) => {
+      if (!q) {
+        r.el.classList.remove("hidden");
+        r.nameEl.innerHTML = esc(r.org.name);
+        visible++;
+        return;
+      }
+      const kind = matchOrg(r.org, q);
+      if (!kind) { r.el.classList.add("hidden"); return; }
+      r.el.classList.remove("hidden");
+      r.nameEl.innerHTML = highlight(r.org.name, kind === "name" ? q : "");
+      visible++;
+      if (kind !== "name") {
+        r.toggle(true);
+        r.detailEl.querySelectorAll('[data-role="vname"], [data-role="rname"]').forEach((el) => {
+          el.innerHTML = highlight(el.textContent, q);
+        });
+      }
+    });
+    emptyState.style.display = visible ? "none" : "block";
+    searchMeta.textContent = q ? `${visible} of ${rows.length} departments match "${searchInput.value.trim()}"` : `Showing all ${rows.length} departments, sorted by total spending.`;
+  });
+
+  // ---------- Calculation / render ----------
+  const incomeInput = document.getElementById("income");
+  const totalAmountEl = document.getElementById("totalAmount");
+  function parseIncome() {
+    const n = parseFloat(incomeInput.value.replace(/[^0-9.]/g, ""));
+    return isNaN(n) || n < 0 ? 0 : n;
+  }
+  function render() {
+    const income = parseIncome();
+    const tax = federalTax(income);
+    totalAmountEl.textContent = fmtCents(tax);
+    teaserAmountEls.forEach(({ el, share }) => (el.textContent = fmtCents(tax * share)));
+    rows.forEach((r) => (r.shareEl.textContent = fmtCents(tax * (r.org.total / TOTAL_SPEND))));
+  }
+  incomeInput.addEventListener("input", () => {
+    const digits = incomeInput.value.replace(/[^0-9]/g, "");
+    incomeInput.value = digits ? Number(digits).toLocaleString("en-CA") : "";
+    render();
+  });
+  document.getElementById("calc").addEventListener("click", render);
+  document.querySelectorAll(".presets button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      incomeInput.value = Number(btn.dataset.amount).toLocaleString("en-CA");
+      render();
+    });
+  });
+
+  render();
+</script>
