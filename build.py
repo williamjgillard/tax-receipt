@@ -81,8 +81,9 @@ def main():
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(full)
 
+    card_count = claim_cards.count('<div class="claim-card">')
     print(f"Wrote {args.out} ({len(full)/1e6:.2f} MB), "
-          f"{claim_cards.count('<div class=\"claim-card\">')} claim cards, "
+          f"{card_count} claim cards, "
           f"{len(parsed)} orgs in spending data.")
 
 
