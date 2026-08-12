@@ -36,6 +36,10 @@ def main():
     ap.add_argument("--template-before", default="template_before.html")
     ap.add_argument("--template-after", default="template_after.html")
     ap.add_argument("--spending-json", default="master_spending.json")
+    ap.add_argument("--standalone", action="store_true",
+                     help="Wrap output as a complete HTML document (doctype/html/head/meta viewport/body) "
+                          "for hosting outside the Artifact tool, e.g. GitHub Pages. Without this flag, "
+                          "output is bare content meant for the Artifact tool's own wrapper.")
     args = ap.parse_args()
 
     with open(args.template_before, encoding="utf-8") as f:
@@ -78,13 +82,24 @@ def main():
         + after
     )
 
+    if args.standalone:
+        full = (
+            '<!doctype html>\n<html lang="en">\n<head>\n'
+            '<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            '</head>\n'
+            + full
+            + '\n</body>\n</html>\n'
+        )
+
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(full)
 
     card_count = claim_cards.count('<div class="claim-card">')
     print(f"Wrote {args.out} ({len(full)/1e6:.2f} MB), "
           f"{card_count} claim cards, "
-          f"{len(parsed)} orgs in spending data.")
+          f"{len(parsed)} orgs in spending data"
+          f"{', standalone document' if args.standalone else ', Artifact-tool fragment'}.")
 
 
 if __name__ == "__main__":
