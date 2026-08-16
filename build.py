@@ -87,6 +87,17 @@ def main():
             '<!doctype html>\n<html lang="en">\n<head>\n'
             '<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            # Home-screen name + icon (iOS reads apple-touch-icon/apple-mobile-web-app-*;
+            # Android/Chrome reads the manifest). Only meaningful for standalone hosting
+            # (e.g. GitHub Pages) — the Artifact tool's own wrapper handles this itself.
+            '<link rel="manifest" href="manifest.json">\n'
+            '<meta name="theme-color" content="#ab3629">\n'
+            '<link rel="apple-touch-icon" href="icons/icon-180.png">\n'
+            '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+            '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n'
+            '<meta name="apple-mobile-web-app-title" content="Tax Receipt">\n'
+            '<link rel="icon" href="icons/icon-32.png" sizes="32x32">\n'
+            '<link rel="icon" href="icons/icon-512.png" sizes="512x512">\n'
             '</head>\n'
             + full
             + '\n</body>\n</html>\n'
