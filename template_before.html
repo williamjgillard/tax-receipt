@@ -78,6 +78,10 @@
   .mode-nav a:hover, .mode-nav a:focus-visible { background: var(--paper); color: var(--ink); }
   .freshness { font-size: 10.5px; color: var(--ink-muted); text-align: center; max-width: 520px; line-height: 1.6; margin-bottom: 28px; }
   .freshness strong { color: var(--ink); }
+  .refresh-btn { font-family: inherit; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule); color: var(--ink-muted); padding: 3px 10px; margin-left: 8px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+  .refresh-btn:hover, .refresh-btn:focus-visible { border-color: var(--accent); color: var(--accent); }
+  .refresh-btn.spinning { animation: spin 0.6s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ---------- Receipt shell ---------- */
   .receipt-wrap {
@@ -273,7 +277,22 @@
     <a href="#claims">Claim Check</a>
   </nav>
   <div class="freshness sans">
-    Verified <strong>August 12, 2026</strong> &middot; spending: FY2024&ndash;25 actuals (newest published) &middot; contracts/grants: pulled this date &middot; tax brackets: 2026 &middot; claims: {{CLAIMS_FRESHNESS}}</div>
+    Verified <strong>August 12, 2026</strong> &middot; spending: FY2024&ndash;25 actuals (newest published) &middot; contracts/grants: pulled this date &middot; tax brackets: 2026 &middot; claims: {{CLAIMS_FRESHNESS}}
+    <button type="button" id="refreshPage" class="refresh-btn" title="Reload this page fresh, bypassing any cached copy in your browser">&#8635; Reload for latest</button>
+  </div>
+  <script>
+    (function(){
+      var btn = document.getElementById('refreshPage');
+      if (!btn) return;
+      btn.addEventListener('click', function(){
+        btn.classList.add('spinning');
+        btn.disabled = true;
+        var url = new URL(location.href);
+        url.searchParams.set('_r', Date.now());
+        location.href = url.toString();
+      });
+    })();
+  </script>
   <div class="receipt-wrap" id="top">
     <div class="receipt">
       <div class="masthead">
