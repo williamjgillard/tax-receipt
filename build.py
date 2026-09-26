@@ -32,6 +32,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--claims", required=True, help="Path to an HTML file containing all <div class=\"claim-card\">...</div> blocks to show, in order.")
     ap.add_argument("--freshness", required=True, help="Text for the claims: segment of the freshness line, e.g. 'refreshed August 19, 2026 by automated routine, individually sourced'.")
+    ap.add_argument("--timeline", required=True, help="Path to an HTML file containing all <div class=\"pledge-card\">...</div> blocks to show, in order.")
+    ap.add_argument("--timeline-freshness", required=True, help="Text for the commitments: segment of the freshness line, e.g. 'verified September 26, 2026, by automated routine, individually sourced'.")
     ap.add_argument("--out", default="tax-receipt.html")
     ap.add_argument("--template-before", default="template_before.html")
     ap.add_argument("--template-after", default="template_after.html")
@@ -48,6 +50,8 @@ def main():
         after = f.read()
     with open(args.claims, encoding="utf-8") as f:
         claim_cards = f.read()
+    with open(args.timeline, encoding="utf-8") as f:
+        pledge_cards = f.read()
     with open(args.spending_json, encoding="utf-8") as f:
         spending_json_text = f.read()
 
@@ -55,8 +59,14 @@ def main():
         fail("template_before.html is missing the {{CLAIM_CARDS}} placeholder")
     if "{{CLAIMS_FRESHNESS}}" not in before:
         fail("template_before.html is missing the {{CLAIMS_FRESHNESS}} placeholder")
+    if "{{TIMELINE_CARDS}}" not in before:
+        fail("template_before.html is missing the {{TIMELINE_CARDS}} placeholder")
+    if "{{TIMELINE_FRESHNESS}}" not in before:
+        fail("template_before.html is missing the {{TIMELINE_FRESHNESS}} placeholder")
     if claim_cards.count('<div class="claim-card">') < 1:
         fail("claims file has zero claim-card blocks — refusing to publish an empty Claim Check section")
+    if pledge_cards.count('<div class="pledge-card">') < 1:
+        fail("timeline file has zero pledge-card blocks — refusing to publish an empty Timeline section")
     if "</script" in spending_json_text:
         fail("spending JSON contains a literal </script sequence — investigate before publishing")
 
@@ -69,6 +79,8 @@ def main():
 
     before = before.replace("{{CLAIM_CARDS}}", claim_cards.strip())
     before = before.replace("{{CLAIMS_FRESHNESS}}", args.freshness)
+    before = before.replace("{{TIMELINE_CARDS}}", pledge_cards.strip())
+    before = before.replace("{{TIMELINE_FRESHNESS}}", args.timeline_freshness)
 
     if "{{" in before:
         leftover = re.findall(r"\{\{[^}]*\}\}", before)
@@ -107,8 +119,10 @@ def main():
         f.write(full)
 
     card_count = claim_cards.count('<div class="claim-card">')
+    pledge_count = pledge_cards.count('<div class="pledge-card">')
     print(f"Wrote {args.out} ({len(full)/1e6:.2f} MB), "
           f"{card_count} claim cards, "
+          f"{pledge_count} pledge cards, "
           f"{len(parsed)} orgs in spending data"
           f"{', standalone document' if args.standalone else ', Artifact-tool fragment'}.")
 

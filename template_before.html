@@ -267,6 +267,34 @@
   .claims-legend span { display: inline-flex; align-items: center; gap: 5px; }
   .claims-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
+  /* ================= TIMELINE ================= */
+  .timeline-wrap { width: min(620px, 100%); margin-top: 40px; filter: drop-shadow(0 20px 36px hsl(var(--shadow-color) / 0.3)); }
+  .timeline {
+    background: var(--paper);
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, hsl(0 0% 0% / 0.02) 27px, hsl(0 0% 0% / 0.02) 28px);
+    padding: 30px 26px 26px;
+  }
+
+  .pledge-card { border-top: 2px dashed var(--rule); padding: 22px 0; }
+  .pledge-card:first-of-type { border-top: none; padding-top: 6px; }
+
+  .pledge-meta { display: flex; justify-content: space-between; gap: 10px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 10px; }
+
+  .pledge-title { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ink); margin: 0 0 16px; }
+
+  ul.pledge-milestones { list-style: none; margin: 0 0 12px; padding: 0 0 0 20px; border-left: 2px dotted var(--rule); }
+  .pledge-milestones li { position: relative; padding: 0 0 16px 14px; }
+  .pledge-milestones li:last-child { padding-bottom: 0; }
+  .pledge-milestones li::before {
+    content: ""; position: absolute; left: -25px; top: 3px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--accent); border: 2px solid var(--accent);
+  }
+  .pledge-milestones li.pending::before { background: var(--paper); border-color: var(--ink-faint); border-style: dashed; }
+  .m-date { display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
+  .pledge-milestones li.pending .m-date { color: var(--ink-muted); font-style: italic; }
+  .m-desc { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12.5px; line-height: 1.55; color: var(--ink); }
+  .pledge-milestones li.pending .m-desc { color: var(--ink-muted); }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -275,9 +303,10 @@
     <a href="#top">Tax Receipt</a>
     <a href="#ledger">Full Ledger</a>
     <a href="#claims">Claim Check</a>
+    <a href="#timeline">The Timeline</a>
   </nav>
   <div class="freshness sans">
-    Verified <strong>August 12, 2026</strong> &middot; spending: FY2024&ndash;25 actuals (newest published) &middot; contracts/grants: pulled this date &middot; tax brackets: 2026 &middot; claims: {{CLAIMS_FRESHNESS}}
+    Verified <strong>August 12, 2026</strong> &middot; spending: FY2024&ndash;25 actuals (newest published) &middot; contracts/grants: pulled this date &middot; tax brackets: 2026 &middot; claims: {{CLAIMS_FRESHNESS}} &middot; commitments: {{TIMELINE_FRESHNESS}}
     <button type="button" id="refreshPage" class="refresh-btn" title="Reload this page fresh, bypassing any cached copy in your browser">&#8635; Reload for latest</button>
   </div>
   <script>
@@ -416,6 +445,27 @@
 
       <div class="disclaimer" style="margin-top:6px;">
         New claims are added most weeks by an automated routine and individually sourced &mdash; picked to show the range (government and opposition, true and false and everything between). Existing claims are never edited or removed, only added to.
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-wrap" id="timeline">
+    <svg class="torn up" viewBox="0 0 400 16" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,0 L0,10 L10,0 L20,10 L30,0 L40,10 L50,0 L60,10 L70,0 L80,10 L90,0 L100,10 L110,0 L120,10 L130,0 L140,10 L150,0 L160,10 L170,0 L180,10 L190,0 L200,10 L210,0 L220,10 L230,0 L240,10 L250,0 L260,10 L270,0 L280,10 L290,0 L300,10 L310,0 L320,10 L330,0 L340,10 L350,0 L360,10 L370,0 L380,10 L390,0 L400,10 L400,0 Z"></path>
+    </svg>
+    <div class="timeline">
+      <h2>The Timeline</h2>
+      <p class="ledger-intro">Real government commitments &mdash; platform pledges, budget items, tabled bills &mdash; tracked against what's actually happened, with dates and sources. No verdict stamp here: just the record, so you can judge for yourself.</p>
+
+      <div class="claims-legend">
+        <span><i style="background:var(--accent)"></i>Happened &mdash; confirmed, dated</span>
+        <span><i style="background:var(--paper); border:2px dashed var(--ink-faint);"></i>Target or outstanding &mdash; not yet confirmed</span>
+      </div>
+
+      {{TIMELINE_CARDS}}
+
+      <div class="disclaimer" style="margin-top:6px;">
+        Updated most weeks by an automated routine as new milestones happen &mdash; most weeks, that's zero. Existing commitments are never edited away or removed, only added to as things move.
       </div>
     </div>
   </div>
